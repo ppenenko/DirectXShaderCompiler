@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import hctdb_instrhelp as hct
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -13,3 +14,11 @@ if __name__ == "__main__":
     
     if not os.path.isdir(args.metashade_root):
         raise NotADirectoryError(args.metashade_root)
+
+    db = hct.get_db_hlsl()
+    
+    for intr in sorted(db.intrinsics, key=lambda x: x.key):
+        if intr.ns != "Intrinsics" or intr.vulkanSpecific:
+            continue
+
+        print (intr.name)
