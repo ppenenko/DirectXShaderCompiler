@@ -70,14 +70,20 @@ def _generate_floatlike_intrinsics(f):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description = "Generate Metashade code for HLSL intrinsics from their definitions in DXC"
+        description =   "Generate Metashade code for HLSL intrinsics"
+                        "from their definitions in DXC"
     )
-    parser.add_argument("--metashade-root", help = "Path to the root directory of the Metashade repo")
+    parser.add_argument(
+        "--metashade-root",
+        help = "Path to the root directory of the Metashade repo"
+    )
     args = parser.parse_args()
     
     if not os.path.isdir(args.metashade_root):
         raise NotADirectoryError(args.metashade_root)
 
-    file_name  = os.path.join(args.metashade_root, 'metashade', 'hlsl', 'sm6', 'float_intrinsics.py')
+    file_name  = os.path.join(
+        args.metashade_root, 'metashade', 'hlsl', 'sm6', '_float_intrinsics.py'
+    )
     with open(file_name, 'w') as f:
         _generate_floatlike_intrinsics(f)
