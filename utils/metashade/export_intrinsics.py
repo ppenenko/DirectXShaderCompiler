@@ -16,9 +16,39 @@ if __name__ == "__main__":
         raise NotADirectoryError(args.metashade_root)
 
     db = hct.get_db_hlsl()
-    
-    for intr in sorted(db.intrinsics, key=lambda x: x.key):
-        if intr.ns != "Intrinsics" or intr.vulkanSpecific:
+
+    for intr in sorted(db.intrinsics, key = lambda intr: intr.name):
+        if (   intr.ns != "Intrinsics"
+            or intr.vulkanSpecific
+            or intr.hidden
+            or len(intr.params) != 2
+        ):
             continue
 
-        print (intr.name)
+        # This param represents the return value, check the assumption that
+        # it's always the first one
+        assert(intr.params[0].name == intr.name)
+
+        skip_intr = False
+        for param in intr.params:
+            if param.component_list not in (
+                'LICOMPTYPE_FLOAT_LIKE',
+                'LICOMPTYPE_ANY_FLOAT',
+                'LICOMPTYPE_FLOAT_DOUBLE'
+            ):
+                skip_intr = True
+                continue
+            if param.name == intr.name or intr.hidden:
+                if (param.template_list not in ('LITEMPLATE_ANY' 'LITEMPLATE_SCALAR')):
+                    skip_intr = True
+                    continue
+            else:
+                # This is the only parameter
+                if (param.template_list != 'LITEMPLATE_ANY'):
+                    skip_intr = True
+                    continue
+
+        if skip_intr:
+            continue
+
+        print(intr.name)
