@@ -232,6 +232,9 @@ public:
     InstsInThisBlock.clear();
     SawFrameEscape = false;
 
+    if (Broken) {
+      CheckFailed("Dominates use check failed in function", &F);
+    }
     return !Broken;
   }
 
