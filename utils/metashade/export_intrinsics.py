@@ -91,6 +91,10 @@ def _generate_floatlike_intrinsics(impl_file, test_file):
         for dim in range(1, 5):
             _generate_test_func(str(dim))
 
+        for row in range(1, 5):
+            for col in range(1, 5):
+                _generate_test_func(f'{row}x{col}')
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description =   "Generate Metashade code for HLSL intrinsics"
