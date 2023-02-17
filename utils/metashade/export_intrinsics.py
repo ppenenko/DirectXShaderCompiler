@@ -68,11 +68,28 @@ def _generate_floatlike_intrinsics(impl_file, test_file):
             continue
 
         impl_file.write(f'\tdef {intr.name}(self):\n')
-        impl_file.write(f'\t\treturn self.__class__( f\'{intr.name}({{self}})\' )\n\n')
+        impl_file.write(
+            f'\t\treturn self.__class__( f\'{intr.name}({{self}})\' )\n\n'
+        )
 
-        test_file.write(f'\twith sh.function("test_{intr.name}", sh.Float)():\n')
-        test_file.write(f'\t\tsh.f_{intr.name} = sh.g_f.{intr.name}()\n')
-        test_file.write(f'\t\tsh.return_( sh.f_{intr.name} )\n\n')
+        def _generate_test_func(dtype_suffix : str):
+            func_name = f'test_{intr.name}_Float{dtype_suffix}'
+            test_file.write(
+                f'\twith sh.function("{func_name}",'
+                f' sh.Float{dtype_suffix})():\n'
+            )
+            test_file.write(
+                f'\t\tsh.f{dtype_suffix}_{intr.name} = '
+                f'sh.g_f{dtype_suffix}.{intr.name}()\n'
+            )
+            test_file.write(
+                f'\t\tsh.return_( sh.f{dtype_suffix}_{intr.name} )\n\n'
+            )
+
+        _generate_test_func('')
+
+        for dim in range(1, 5):
+            _generate_test_func(str(dim))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
