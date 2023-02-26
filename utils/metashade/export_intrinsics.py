@@ -26,10 +26,25 @@ impl_header = \
 '''
 
 def _generate_intrinsic(intr, impl_file, test_file):
-    impl_file.write(f'\tdef {intr.name}(self):\n')
+    self_idx = 2 if intr.name in ('lerp', 'smoothstep') else 0
+    arg_names = ['self'] + [
+        param.name for idx, param in enumerate(intr.params[1:])
+            if idx != self_idx
+    ]
+    arg_str = ', '.join(arg_names)
+    impl_file.write(f'\tdef {intr.name}({arg_str}):\n')
+
+    arg_names = arg_names[1:]
+    arg_names.insert(self_idx, 'self')
+
+    arg_str = ', '.join([f'{{{name}}}' for name in arg_names])
     impl_file.write(
-        f'\t\treturn self.__class__( f\'{intr.name}({{self}})\' )\n\n'
+        f'\t\treturn self.__class__( f\'{intr.name}({arg_str})\' )\n\n'
     )
+
+    if len(intr.params) > 2:
+        # Unit tests for more-than-unary intrinsics not implemented yet
+        return
 
     def _generate_test_func(dtype_suffix : str):
         func_name = f'test_{intr.name}_Float{dtype_suffix}'
@@ -77,7 +92,6 @@ def _generate_intrinsics(
         if (   intr.ns != "Intrinsics"
             or intr.vulkanSpecific
             or intr.hidden
-            or len(intr.params) != 2
             or any(p.template_list != 'LITEMPLATE_ANY' for p in intr.params)
         ):
             continue
