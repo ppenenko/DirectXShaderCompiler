@@ -81,7 +81,7 @@ def _generate_intrinsics(
         f.write(impl_header)
 
     for f in (float_impl_file, numeric_impl_file):
-        f.write('class Mixin:\n')
+        f.write('class AnyLayoutMixin:\n')
 
     for f in (float_test_file, numeric_test_file):
         f.write('def test(sh):\n')
