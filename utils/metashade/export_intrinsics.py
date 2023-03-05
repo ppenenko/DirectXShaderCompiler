@@ -27,38 +27,38 @@ impl_header = \
 
 def _generate_intrinsic(intr, impl_file, test_file):
     self_idx = 2 if intr.name in ('lerp', 'smoothstep') else 0
-    arg_names = ['self'] + [
+    param_names_no_self = [
         param.name for idx, param in enumerate(intr.params[1:])
             if idx != self_idx
     ]
-    arg_str = ', '.join(arg_names)
-    impl_file.write(f'\tdef {intr.name}({arg_str}):\n')
+    param_str = ', '.join(['self'] + param_names_no_self)
+    impl_file.write(f'\tdef {intr.name}({param_str}):\n')
 
-    arg_names = arg_names[1:]
-    arg_names.insert(self_idx, 'self')
+    init_arg_names = param_names_no_self.copy()
+    init_arg_names.insert(self_idx, 'self')
 
-    arg_str = ', '.join([f'{{{name}}}' for name in arg_names])
+    init_arg_str = ', '.join([f'{{{name}}}' for name in init_arg_names])
     impl_file.write(
-        f'\t\treturn self.__class__( f\'{intr.name}({arg_str})\' )\n\n'
+        f'\t\treturn self.__class__( f\'{intr.name}({init_arg_str})\' )\n\n'
     )
-
-    if len(intr.params) > 2:
-        # Unit tests for more-than-unary intrinsics not implemented yet
-        return
 
     def _generate_test_func(dtype_suffix : str):
         func_name = f'test_{intr.name}_Float{dtype_suffix}'
+        dtype_name = f'sh.Float{dtype_suffix}'
         test_file.write(
-            f'\twith sh.function("{func_name}",'
-            f' sh.Float{dtype_suffix})():\n'
+            f'\twith sh.function("{func_name}", {dtype_name})('
         )
+        test_file.write(', '.join([
+            f'{arg_name} = {dtype_name}' for arg_name in param_names_no_self
+        ]))
+        test_file.write('):\n')
         test_file.write(
-            f'\t\tsh.f{dtype_suffix}_{intr.name} = '
-            f'sh.g_f{dtype_suffix}.{intr.name}()\n'
+            f'\t\tsh.return_( sh.g_f{dtype_suffix}.{intr.name}('
         )
-        test_file.write(
-            f'\t\tsh.return_( sh.f{dtype_suffix}_{intr.name} )\n\n'
-        )
+        test_file.write(', '.join([
+            f'{arg_name} = sh.{arg_name}' for arg_name in param_names_no_self
+        ]))
+        test_file.write(') )\n\n')
 
     _generate_test_func('')
 
