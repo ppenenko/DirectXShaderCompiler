@@ -61,36 +61,42 @@ def _generate_intrinsic(intr, impl_file, test_file):
     init_arg_str = ', '.join([f'{{{name}}}' for name in init_arg_names])
     intr_call_str = f"f\'{intr.name}({init_arg_str})\'"
 
+    is_void = _is_void(intr.params[0])
+
     impl_file.write('\t\t')
     impl_file.write(
-        f'self._emit_void_intrinsic( {intr_call_str} )'
-            if _is_void(intr.params[0])
-        else
-            f'return self.__class__( {intr_call_str} )'
+        f'self._emit_void_intrinsic( {intr_call_str} )' if is_void
+        else f'return self.__class__( {intr_call_str} )'
     )
     impl_file.write('\n\n')
-
-    if _is_void(intr.params[0]):
-        # Unit tests for void intrinsics not implemented yet
-        return
 
     def _generate_test_func(dtype_suffix : str):
         func_name = f'test_{intr.name}_Float{dtype_suffix}'
         dtype_name = f'sh.Float{dtype_suffix}'
+        return_dtype_name = 'None' if is_void else dtype_name
         test_file.write(
-            f'\twith sh.function("{func_name}", {dtype_name})('
+            f'\twith sh.function("{func_name}", {return_dtype_name})('
         )
         test_file.write(', '.join([
             f'{arg_name} = {dtype_name}' for arg_name in param_names_no_self
         ]))
-        test_file.write('):\n')
+        test_file.write('):\n\t\t')
+
+        if not is_void:
+            test_file.write('sh.return_( ')
+
         test_file.write(
-            f'\t\tsh.return_( sh.g_f{dtype_suffix}.{intr.name}('
+            f'sh.g_f{dtype_suffix}.{intr.name}('
         )
         test_file.write(', '.join([
             f'{arg_name} = sh.{arg_name}' for arg_name in param_names_no_self
         ]))
-        test_file.write(') )\n\n')
+        test_file.write(')')
+
+        if not is_void:
+            test_file.write(' )')
+
+        test_file.write('\n\n')
 
     _generate_test_func('')
 
@@ -126,6 +132,7 @@ def _generate_intrinsics(
         if (   intr.ns != "Intrinsics"
             or intr.vulkanSpecific
             or intr.hidden
+            or len(intr.params) <= 1
         ):
             continue
 
