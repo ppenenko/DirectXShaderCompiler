@@ -5,7 +5,7 @@ import argparse
 import os
 import hctdb_instrhelp as hct
 
-impl_header = \
+_header = \
 '''# Copyright 2023 Pavlo Penenko
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,27 @@ impl_header = \
  
 '''
 
+def _is_float_any_layout(param):
+    return (
+        param.template_list == 'LITEMPLATE_ANY'
+        and param.component_list in (
+            'LICOMPTYPE_VOID',
+            'LICOMPTYPE_FLOAT',
+            'LICOMPTYPE_FLOAT_LIKE',
+            'LICOMPTYPE_ANY_FLOAT',
+            'LICOMPTYPE_FLOAT_DOUBLE'
+        )
+    )
+
+def _is_numeric_any_layout(param):
+    return (
+        param.template_list == 'LITEMPLATE_ANY'
+        and param.component_list == 'LICOMPTYPE_NUMERIC'
+    )
+
+def _is_void(param):
+    return param.component_list == 'LICOMPTYPE_VOID'
+
 def _generate_intrinsic(intr, impl_file, test_file):
     self_idx = 2 if intr.name in ('lerp', 'smoothstep') else 0
     param_names_no_self = [
@@ -38,9 +59,20 @@ def _generate_intrinsic(intr, impl_file, test_file):
     init_arg_names.insert(self_idx, 'self')
 
     init_arg_str = ', '.join([f'{{{name}}}' for name in init_arg_names])
+    intr_call_str = f"f\'{intr.name}({init_arg_str})\'"
+
+    impl_file.write('\t\t')
     impl_file.write(
-        f'\t\treturn self.__class__( f\'{intr.name}({init_arg_str})\' )\n\n'
+        f'self._emit_void_intrinsic( {intr_call_str} )'
+            if _is_void(intr.params[0])
+        else
+            f'return self.__class__( {intr_call_str} )'
     )
+    impl_file.write('\n\n')
+
+    if _is_void(intr.params[0]):
+        # Unit tests for void intrinsics not implemented yet
+        return
 
     def _generate_test_func(dtype_suffix : str):
         func_name = f'test_{intr.name}_Float{dtype_suffix}'
@@ -69,7 +101,6 @@ def _generate_intrinsic(intr, impl_file, test_file):
         for col in range(1, 5):
             _generate_test_func(f'{row}x{col}')
 
-
 def _generate_intrinsics(
     float_impl_file, float_test_file,
     numeric_impl_file, numeric_test_file
@@ -78,10 +109,13 @@ def _generate_intrinsics(
         float_impl_file, float_test_file,
         numeric_impl_file, numeric_test_file
     ):
-        f.write(impl_header)
+        f.write(_header)
 
     for f in (float_impl_file, numeric_impl_file):
-        f.write('class AnyLayoutMixin:\n')
+        f.write(
+            'from . import _intrinsics_base\n\n'
+            'class AnyLayoutMixin(_intrinsics_base.Mixin):\n'
+        )
 
     for f in (float_test_file, numeric_test_file):
         f.write('def test(sh):\n')
@@ -92,23 +126,19 @@ def _generate_intrinsics(
         if (   intr.ns != "Intrinsics"
             or intr.vulkanSpecific
             or intr.hidden
-            or any(p.template_list != 'LITEMPLATE_ANY' for p in intr.params)
         ):
             continue
 
         # This param represents the return value, check the assumption that
         # it's always the first one
-        assert(intr.params[0].name == intr.name)
+        assert intr.params[0].name == intr.name
 
-        if all( param.component_list in (
-                'LICOMPTYPE_FLOAT_LIKE',
-                'LICOMPTYPE_ANY_FLOAT',
-                'LICOMPTYPE_FLOAT_DOUBLE'
-            ) for param in intr.params
+        if ((_is_float_any_layout(intr.params[0]) or _is_void(intr.params[0]))
+            and all( _is_float_any_layout(param) for param in intr.params[1:] )
         ):
             _generate_intrinsic(intr, float_impl_file, float_test_file)
-        elif all(
-            param.component_list == 'LICOMPTYPE_NUMERIC' for param in intr.params
+        elif ((_is_numeric_any_layout(intr.params[0]) or _is_void(intr.params[0]))
+            and all( _is_numeric_any_layout(param) for param in intr.params[1:] )
         ):
             _generate_intrinsic(intr, numeric_impl_file, numeric_test_file)
 
