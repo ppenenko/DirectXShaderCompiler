@@ -25,16 +25,19 @@ _header = \
  
 '''
 
+def _is_float(param):
+    return param.component_list in (
+        'LICOMPTYPE_VOID',
+        'LICOMPTYPE_FLOAT',
+        'LICOMPTYPE_FLOAT_LIKE',
+        'LICOMPTYPE_ANY_FLOAT',
+        'LICOMPTYPE_FLOAT_DOUBLE'
+    )
+
 def _is_float_any_layout(param):
     return (
         param.template_list == 'LITEMPLATE_ANY'
-        and param.component_list in (
-            'LICOMPTYPE_VOID',
-            'LICOMPTYPE_FLOAT',
-            'LICOMPTYPE_FLOAT_LIKE',
-            'LICOMPTYPE_ANY_FLOAT',
-            'LICOMPTYPE_FLOAT_DOUBLE'
-        )
+        and _is_float(param)
     )
 
 def _is_numeric_any_layout(param):
@@ -66,7 +69,7 @@ def _generate_intrinsic(intr, impl_file, test_file):
     impl_file.write('\t\t')
     impl_file.write(
         f'self._emit_void_intrinsic( {intr_call_str} )' if is_void
-        else f'return self.__class__( {intr_call_str} )'
+        else f'return self._sh._instantiate_dtype( self.__class__, {intr_call_str} )'
     )
     impl_file.write('\n\n')
 
@@ -136,11 +139,14 @@ def _generate_intrinsics(
         ):
             continue
 
+        if intr.name == 'length':
+            pass
+
         # This param represents the return value, check the assumption that
         # it's always the first one
         assert intr.params[0].name == intr.name
 
-        if ((_is_float_any_layout(intr.params[0]) or _is_void(intr.params[0]))
+        if ((_is_float(intr.params[0]) or _is_void(intr.params[0]))
             and all( _is_float_any_layout(param) for param in intr.params[1:] )
         ):
             _generate_intrinsic(intr, float_impl_file, float_test_file)
